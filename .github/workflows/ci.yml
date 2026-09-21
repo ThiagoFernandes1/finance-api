@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build e testes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configura JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Build e testes
+        run: mvn -B verify
+
+      - name: Publica relatorio de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+
+      - name: Publica cobertura JaCoCo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+  migrations:
+    name: Valida migrations no PostgreSQL
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: finance
+          POSTGRES_USER: finance
+          POSTGRES_PASSWORD: finance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U finance -d finance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configura JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # Aplica as migrations no Postgres real. Um SQL invalido no dialeto do
+      # Postgres falha aqui, e nao so na primeira subida em producao.
+      - name: Aplica as migrations
+        run: >-
+          mvn -B flyway:migrate
+          -Dflyway.url=jdbc:postgresql://localhost:5432/finance
+          -Dflyway.user=finance
+          -Dflyway.password=finance
+          -Dflyway.locations=filesystem:src/main/resources/db/migration
+
+      # Sobe a aplicacao ja migrada com ddl-auto=validate: se o schema divergir
+      # das entidades JPA, o contexto nao inicializa e o job falha.
+      - name: Valida o schema contra as entidades JPA
+        run: mvn -B test -Dtest=SchemaValidationTest -DfailIfNoTests=true
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/finance
+          DB_USER: finance
+          DB_PASSWORD: finance
+          JWT_SECRET: chave-de-ci-com-tamanho-suficiente-para-hmac-sha256
