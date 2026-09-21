@@ -4,7 +4,7 @@ API REST para gestão financeira pessoal: contas, lançamentos, orçamentos mens
 
 Construída com **Java 21** e **Spring Boot 3.3**, com autenticação JWT, migrations versionadas, documentação OpenAPI e pipeline de CI.
 
-![CI](https://github.com/OWNER/finance-api/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/ThiagoFernandes1/finance-api/actions/workflows/ci.yml/badge.svg)
 
 ---
 
