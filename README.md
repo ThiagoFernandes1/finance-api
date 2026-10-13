@@ -75,7 +75,7 @@ mvn spring-boot:run
 mvn verify
 ```
 
-30 testes: unitários para as regras de orçamento e relatório, e de integração cobrindo o fluxo HTTP completo sobre o contexto Spring. O relatório de cobertura fica em `target/site/jacoco/index.html`.
+32 testes: unitários para as regras de orçamento e relatório, e de integração cobrindo o fluxo HTTP completo sobre o contexto Spring. O relatório de cobertura fica em `target/site/jacoco/index.html`.
 
 ## Documentação da API
 
