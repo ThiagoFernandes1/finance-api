@@ -14,7 +14,15 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -183,6 +191,40 @@ class FinanceApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].description").value("Salario setembro"));
+    }
+
+    @Test
+    @DisplayName("cadastros simultaneos com o mesmo email: um passa, os outros recebem 409")
+    void shouldAnswerConflictForConcurrentDuplicateRegistration() throws Exception {
+        String payload = """
+                {"name":"Duplicado","email":"%s","password":"senhaForte123"}
+                """.formatted("simultaneo-%s@example.com".formatted(UUID.randomUUID()));
+        int attempts = 6;
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(attempts);
+        try {
+            List<Future<Integer>> results = new ArrayList<>();
+            for (int i = 0; i < attempts; i++) {
+                results.add(pool.submit(() -> {
+                    start.await();
+                    return mockMvc.perform(post("/api/v1/auth/register")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(payload))
+                            .andReturn().getResponse().getStatus();
+                }));
+            }
+            start.countDown();
+
+            List<Integer> statuses = new ArrayList<>();
+            for (Future<Integer> result : results) {
+                statuses.add(result.get());
+            }
+            assertThat(statuses).as("status recebidos: %s", statuses).containsOnlyOnce(201);
+            assertThat(statuses).as("status recebidos: %s", statuses)
+                    .filteredOn(s -> s == 409).hasSize(attempts - 1);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

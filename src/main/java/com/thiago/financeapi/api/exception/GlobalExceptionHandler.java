@@ -2,6 +2,7 @@ package com.thiago.financeapi.api.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -27,6 +28,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleBusiness(
             BusinessException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    /**
+     * Os services checam duplicidade (existsBy...) antes de salvar, mas a checagem e o
+     * INSERT nao sao atomicos: duas requisicoes iguais ao mesmo tempo passam juntas pela
+     * checagem e o indice unico do banco barra a segunda. Isso e conflito, nao erro interno.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(
+            DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Violacao de integridade em {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT, "O registro conflita com outro ja existente", request);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
