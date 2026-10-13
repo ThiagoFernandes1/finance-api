@@ -40,10 +40,18 @@ final class TransactionSpecifications {
             if (filter.description() != null && !filter.description().isBlank()) {
                 predicates.add(builder.like(
                         builder.lower(root.get("description")),
-                        "%" + filter.description().toLowerCase() + "%"));
+                        "%" + escapeLike(filter.description().toLowerCase()) + "%",
+                        '\\'));
             }
 
             return builder.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    /** % e _ sao curingas no LIKE; aqui o que o usuario digitou vale como texto. */
+    static String escapeLike(String text) {
+        return text.replace("\\", "\\\\")
+                   .replace("%", "\\%")
+                   .replace("_", "\\_");
     }
 }

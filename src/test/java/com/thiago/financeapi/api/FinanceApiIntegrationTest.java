@@ -186,6 +186,32 @@ class FinanceApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("busca por descricao trata % e _ como texto")
+    void shouldTreatLikeWildcardsInDescriptionAsText() throws Exception {
+        String accountId = createAccount("Conta Busca", "0.00");
+        String foodId = categoryIdByName("Alimentacao");
+
+        createTransaction("Desconto 50% mercado", "10.00", "EXPENSE", "2026-09-10", accountId, foodId);
+        createTransaction("Compra 500g cafe", "20.00", "EXPENSE", "2026-09-11", accountId, foodId);
+        createTransaction("Pix conta_luz", "30.00", "EXPENSE", "2026-09-12", accountId, foodId);
+        createTransaction("Pix contaXluz", "40.00", "EXPENSE", "2026-09-13", accountId, foodId);
+
+        mockMvc.perform(get("/api/v1/transactions")
+                        .header("Authorization", bearer())
+                        .param("description", "50%"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].description").value("Desconto 50% mercado"));
+
+        mockMvc.perform(get("/api/v1/transactions")
+                        .header("Authorization", bearer())
+                        .param("description", "conta_luz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].description").value("Pix conta_luz"));
+    }
+
+    @Test
     @DisplayName("consolida o relatorio mensal com quebra por categoria")
     void shouldBuildMonthlyReport() throws Exception {
         String accountId = createAccount("Conta Relatorio", "0.00");
